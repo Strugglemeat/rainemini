@@ -1,11 +1,11 @@
-modification of raine emulator to use no asm and be portable
+modification of raine emulator to use no asm and be as portable as possible
 
 all credit goes to https://github.com/zelurker/raine
 
 when removing neogeo CD I ended up removing neogeo completely
 it should be doable to add it back, but I'm not going to do that right now
 
-ultimately my aim is to set up this codebase to be portable to put on ESP32 and/or STM32H7
+ultimately my aim is to port this to ESP32 and/or STM32H7
 
 I removed blending, emudx, samples, png, gzip, leds.
 

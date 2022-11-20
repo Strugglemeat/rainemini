@@ -1,5 +1,7 @@
 modification of raine emulator to use no asm and be portable
 
+all credit goes to https://github.com/zelurker/raine
+
 when removing neogeo CD I ended up removing neogeo completely
 it should be doable to add it back, but I'm not going to do that right now
 

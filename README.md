@@ -7,7 +7,7 @@ it should be doable to add it back, but I'm not going to do that right now
 
 ultimately my aim is to port this to ESP32 and/or STM32H7
 
-I removed blending, emudx, samples, png, gzip, leds, allegro, recording, movies.
+I removed blending, emudx, samples, png, 7z, leds, allegro, recording, movies.
 
 I've also taken out the games which use mouse/lightgun/trackball, as well as a lot of bootlegs and clones.
 

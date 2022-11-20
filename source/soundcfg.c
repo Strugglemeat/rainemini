@@ -6,16 +6,8 @@
 #include "3812intf.h"
 #endif
 
-#ifdef ALLEGRO_SOUND
-int max_mixer_volume;
-#endif
-
 void sound_load_cfg() {
    int id;
-#ifdef ALLEGRO_SOUND
-   _DRIVER_INFO *digi;
-   int i;
-#endif
 
    RaineSoundCard = 0;
 #if SDL == 2
@@ -72,9 +64,6 @@ void sound_load_cfg() {
    es5506_voice_filters = raine_get_config_int( "Sound",        "es5506_voice_filters",1 );
 #endif
    // enh_stereo = raine_get_config_int( "Sound",        "enh_stereo",0 );
-#ifdef ALLEGRO_SOUND
-   max_mixer_volume = raine_get_config_int( "Sound",        "max_mixer_volume",0 );
-#endif
 }
 
 void sound_save_cfg() {
@@ -89,9 +78,5 @@ void sound_save_cfg() {
 #endif
 #if HAS_ES5505
    raine_set_config_int(	"Sound",        "es5506_voice_filters", es5506_voice_filters);
-#endif
-   // raine_set_config_int(	"Sound",        "enh_stereo",         enh_stereo);
-#ifdef ALLEGRO_SOUND
-   raine_set_config_int(	"Sound",        "max_mixer_volume",         max_mixer_volume);
 #endif
 }

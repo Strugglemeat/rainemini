@@ -6,7 +6,7 @@
 
 # version (when the version increases, raine shows the issue dialog on
 # startup
-VERSION = "0.94.7"
+VERSION = "0.94.7-soldam"
 
 # Comment out if you don't want the debug features
 #RAINE_DEBUG = 1
@@ -18,14 +18,16 @@ VERSION = "0.94.7"
 # 1 = 68020
 # 2 = 68000 + 68020
 # set to 2 if NO_ASM is defined
-USE_MUSASHI = 2
+#USE_MUSASHI = 1
 
-# use mame z80 ?
-# MAME_Z80 = 1
 
 # Disable all asm. This will also disable the asm_video_core of
 # course
 NO_ASM = 1
+
+ifdef NO_ASM
+USE_MUSASHI = 2
+endif
 
 # target build for cross compilation, the 2 defaults are for mingw32, 32
 # and 64 bits. You can't build both at the same time, make a choice !
@@ -51,29 +53,7 @@ ifeq ("${target}","x86_64-w64-mingw32")
 endif
 endif
 
-ifeq ("${MSYSTEM}","MINGW64")
-	NO_ASM = 1
-	MINGDIR = 1
-	RAINE32 = 1
-	OSTYPE = mingw64
-endif
-
-ifeq ("${MSYSTEM}","MINGW32")
-	MINGDIR = 1
-	RAINE32 = 1
-	OSTYPE = mingw32
-endif
-
-ifdef NO_ASM
-ASM_VIDEO_CORE =
-MAME_Z80 = 1
-USE_MUSASHI = 2
-endif
-
 ifeq ("$(shell uname)","Linux")
-OSTYPE=linux-gnu
-endif
-ifeq ("$(shell uname)","FreeBSD")
 OSTYPE=linux-gnu
 endif
 
@@ -88,16 +68,6 @@ INCDIR = -I/usr/${target}/include
 else
 CC=gcc
 CXX=g++
-endif
-
-ifeq ("$(OSTYPE)","msys")
-MINGDIR=1
-OSTYPE=mingw32
-endif
-
-ifeq ($(shell echo ${target}|sed 's/.*mingw.*/mingw/'),mingw)
-MINGDIR=1
-OSTYPE=mingw32
 endif
 
 ifndef DARWIN
@@ -160,9 +130,6 @@ GCC_PATCH := $(shell $(CC) -dumpversion|sed 's/.*\.//')
 
 MD =	@mkdir
 
-# error logging (djgpp - old stuff)
-# CC =	redir -ea errorlog.txt gcc
-
 # profiling
 # CC =	gcc -pg
 
@@ -174,9 +141,6 @@ INCDIR +=                 \
     -Isource/video      \
     -Isource/mini-unzip \
     -Isource/mame       \
-	-Isource/m68705
-
-INCDIR +=  -Isource/z80
 
 INCDIR += -Isource/68020
 
@@ -275,8 +239,6 @@ else
 endif
 else
 # linux
-
-
    prefix = $(DESTDIR)/usr
    bindir = $(prefix)/games
    sharedir = $(prefix)/share/games
@@ -298,8 +260,8 @@ endif
 
 RAINE_EXE = raine
 
-   RAINE_DAT = raine.dat
-   RAINE_LNG = brasil.cfg dansk.cfg espanol.cfg french2.cfg german2.cfg japanese.cfg spanish.cfg turkish.cfg catala.cfg dutch.cfg euskera.cfg french.cfg german.cfg polish.cfg svenska.cfg czech.cfg english.cfg finnish.cfg galego.cfg italian.cfg portugal.cfg template.cfg
+#   RAINE_DAT = raine.dat
+#   RAINE_LNG = brasil.cfg dansk.cfg espanol.cfg french2.cfg german2.cfg japanese.cfg spanish.cfg turkish.cfg catala.cfg dutch.cfg euskera.cfg french.cfg german.cfg polish.cfg svenska.cfg czech.cfg english.cfg finnish.cfg galego.cfg italian.cfg portugal.cfg template.cfg
    RAINE_UNIX = 1
 
 ifdef VERBOSE
@@ -422,20 +384,8 @@ OBJDIRS=$(OBJDIR)                \
     $(VIDEO_CORE)/blit_x2        \
     $(OBJDIR)/mini-unzip         \
     $(VIDEO_CORE)/str            \
-    $(OBJDIR)/video/zoom         \
     $(OBJDIR)/math               \
     $(OBJDIR)/games              \
-    $(OBJDIR)/m68705             \
-	locale/fr/LC_MESSAGES \
-	locale/es/LC_MESSAGES \
-	locale/pt/LC_MESSAGES \
-	locale/it/LC_MESSAGES
-
-OBJDIRS += $(OBJDIR)/z80
-ifdef MAME_Z80
-OBJDIRS += $(OBJDIR)/mame/z80
-DEFINE += -DMAME_Z80
-endif
 
 
 ifdef USE_MUSASHI
@@ -459,13 +409,6 @@ OBJDIRS += $(OBJDIR)/sdl2 \
 	$(OBJDIR)/sdl2/gui
 endif
 
-else
-OBJDIRS += $(OBJDIR)/alleg \
-	$(OBJDIR)/alleg/png
-ifdef RAINE_DEBUG
-OBJDIRS += $(OBJDIR)/alleg/debug \
-	$(OBJDIR)/alleg/debug/dz80
-endif
 endif
 
 ifdef SEAL
@@ -531,16 +474,7 @@ endif
 #	-pedantic
 endif
 
-ifeq ("$(shell $(CC) --version|grep '^Apple'|sed 's/\(Apple LLVM\).*/\1/')","Apple LLVM")
-	# gcc 4.8 emits warnings for all the game definitions because we
-	# override the definition with the new macros...
-	CFLAGS += -Wno-initializer-overrides \
-			  -Wno-invalid-source-encoding
-endif
 
-ifdef GFX_SVGALIB
-CFLAGS += -DGFX_SVGA
-endif
 
 ifdef X86_64
 CFLAGS += -DX86_64
@@ -555,59 +489,15 @@ endif
 ifdef SDL
 CFLAGS += -DSDL=${SDL}
 CFLAGS_MCU += -DSDL=${SDL}
-else
-OBJDIRS +=  \
-	$(OBJDIR)/alleg/gui \
-	$(OBJDIR)/alleg/jpg
-
 endif
 
-
-ifeq ($(OSTYPE),cygwin)
-CFLAGS += -mno-cygwin
-CFLAGS_MCU += -mno-cygwin
-SFLAGS += -mno-cygwin
-endif
-
-ifdef RAINE_DEBUG
-
-# Debuger
-
-# dz80 interface
-
-DZ80=	$(OBJDIR)/alleg/debug/dz80/dissz80.o \
-	$(OBJDIR)/alleg/debug/dz80/dz80_raine.o \
-	$(OBJDIR)/alleg/debug/dz80/tables.o
-
-ifndef SDL
-# in sdl the debuger will very probably use sdl_console
-# for now there is no debuger at all
-DEBUG= $(OBJDIR)/alleg/debug/dbg_gui.o \
-	$(OBJDIR)/alleg/debug/breakpt.o \
-	$(DZ80)
-endif
-
-endif
-
-# ASM 68020 core
 
 ifdef USE_MUSASHI
 ASM020= $(OBJDIR)/68020/newcpu.o \
 	$(OBJDIR)/Musashi/m68kcpu.o \
 	$(OBJDIR)/Musashi/m68kops.o
-
-else
-ASM020= $(OBJDIR)/68020/newcpu.o \
-	$(OBJDIR)/68020/readcpu.o \
-	$(OBJDIR)/68020/cpustbl.o \
-	$(OBJDIR)/68020/cpudefs.o \
-	$(OBJDIR)/68020/a020core.o
 endif
 
-ifdef GENS_SH2
-SH2 = $(OBJDIR)/gens_sh2/sh2a.o \
-	  $(OBJDIR)/gens_sh2/sh2.o
-endif
 
 # STARSCREAM 68000 core
 
@@ -617,19 +507,6 @@ else
 SC000=	$(OBJDIR)/68000/s68000.o \
 	$(OBJDIR)/68000/starhelp.o
 endif
-
-# MZ80 core
-
-ifdef MAME_Z80
-MZ80=$(OBJDIR)/z80/mz80help.o $(OBJDIR)/mame/z80/z80.o
-else
-MZ80=	$(OBJDIR)/z80/mz80.o \
-	$(OBJDIR)/z80/mz80help.o
-endif
-
-# M68705 core
-
-M68705= $(OBJDIR)/m68705/m68705.o \
 
 # Video core
 
@@ -647,29 +524,13 @@ VIDEO=	$(OBJDIR)/video/tilemod.o \
 	$(VIDEO_CORE)/16x8_16.o \
 	$(VIDEO_CORE)/16x8_32.o \
 		\
-	$(OBJDIR)/video/zoom/16x16.o \
-	$(OBJDIR)/video/zoom/16x16_16.o \
-	$(OBJDIR)/video/zoom/16x16_32.o \
-	$(OBJDIR)/video/zoom/16x8.o \
 	$(OBJDIR)/video/c/lscroll.o \
 	$(OBJDIR)/video/alpha.o \
 	$(OBJDIR)/video/c/str_opaque.o \
 	$(OBJDIR)/video/c/common.o \
 	$(OBJDIR)/video/c/pdraw.o
 
-ifneq (${SDL},2)
-VIDEO += $(OBJDIR)/video/res.o \
-	$(VIDEO_CORE)/blit_x2/8.o \
-	$(VIDEO_CORE)/blit_x2/16.o \
-	$(VIDEO_CORE)/blit_x2/24.o \
-	$(VIDEO_CORE)/blit_x2/32.o \
-	$(OBJDIR)/video/scale2x.o \
-	$(OBJDIR)/video/scale3x.o
-endif
-
-
 VIDEO += $(VIDEO_CORE)/sprites.o
-
 
 # common to asm & c : 32bpp version of alpha blending
 VIDEO += $(OBJDIR)/video/c/sprites32_a50.o \
@@ -678,62 +539,34 @@ VIDEO += $(OBJDIR)/video/c/sprites32_a50.o \
 # Sound core
 
 SOUND= \
-    $(OBJDIR)/sound/ymdeltat.o \
     $(OBJDIR)/sound/fmopl.o    \
-    $(OBJDIR)/sound/fm.o       \
     $(OBJDIR)/sound/emulator.o
 
 
 2151 = 	$(OBJDIR)/sound/ym2151.o \
 	$(OBJDIR)/sound/2151intf.o
 
-2203 = $(OBJDIR)/sound/2203intf.o
-
-2413 = $(OBJDIR)/sound/2413intf.o \
-	$(OBJDIR)/sound/ym2413.o
-
-2610 = $(OBJDIR)/sound/2610intf.o
-
-3812 = $(OBJDIR)/sound/3812intf.o
-
 ADPCM = $(OBJDIR)/sound/adpcm.o
-
-AY8910 = $(OBJDIR)/sound/ay8910.o
-
-DAC = $(OBJDIR)/sound/dac.o
-
-DXSMP = $(OBJDIR)/sound/dxsmp.o
-ifdef RAINE_DOS
-DXSMP += $(OBJDIR)/sound/wav.o # wav conversion for dos
-endif
-
-ENSONIQ = $(OBJDIR)/sound/es5506.o
 
 M6585 = $(OBJDIR)/sound/m6585.o
 
 MSM5205 = $(OBJDIR)/sound/msm5205.o
 
-GALAXIAN = $(OBJDIR)/sound/galaxian.o
-
-TMS5220 = $(OBJDIR)/sound/tms5220.o $(OBJDIR)/sound/5220intf.o
-
 MSM5232 = $(OBJDIR)/sound/msm5232.o
 
-NAMCO = $(OBJDIR)/sound/namco.o
+# games
 
-QSOUND = $(OBJDIR)/sound/qsound.o
+OBJS += \
+	$(OBJDIR)/games/megasys1.o \
+	$(OBJDIR)/games/taitosnd.o \
 
-SMP16BIT = $(OBJDIR)/sound/smp16bit.o
-
-YMZ280B = $(OBJDIR)/sound/ymz280b.o
-
-YMF278B = $(OBJDIR)/sound/ymf278b.o
-
-X1_010 = $(OBJDIR)/sound/x1_010.o
-
-TOAPLAN2 = $(OBJDIR)/sound/toaplan2.o
-
-include games.mak
+OBJS += \
+	$(SC000) \
+	$(ASM020) \
+	$(2151) \
+	$(OBJDIR)/decode.o \
+	$(ADPCM) \
+	$(M6585) \
 
 # System drivers
 
@@ -751,7 +584,6 @@ GUI=	$(OBJDIR)/sdl/gui.o \
 	$(OBJDIR)/sdl/dialogs/sound_options.o \
 	$(OBJDIR)/sdl/dialogs/gui_options.o \
 	$(OBJDIR)/sdl/dialogs/dirs.o \
-	$(OBJDIR)/sdl/dialogs/about.o \
 	$(OBJDIR)/sdl/dialogs/messagebox.o \
 	$(OBJDIR)/sdl/dialogs/controls.o \
 	$(OBJDIR)/sdl/dialogs/game_options.o \
@@ -762,12 +594,10 @@ GUI=	$(OBJDIR)/sdl/gui.o \
 	$(OBJDIR)/sdl/gui/tlift.o \
 	$(OBJDIR)/sdl/dialogs/game_selection.o \
 	$(OBJDIR)/sdl/dialogs/romdirs.o \
-	$(OBJDIR)/sdl/dialogs/dlg_dsw.o
+	$(OBJDIR)/sdl/dialogs/dlg_dsw.o \
 
 ifeq (${SDL},1)
-	GUI += $(OBJDIR)/sdl/gui/menu.o \
-	$(OBJDIR)/sdl/gui/tbitmap.o \
-	$(OBJDIR)/sdl/dialogs/sprite_viewer.o \
+	GUI += 	$(OBJDIR)/sdl/gui/tbitmap.o \
 	$(OBJDIR)/sdl/gui/tedit.o
 else
 	GUI += $(OBJDIR)/sdl2/gui/menu.o \
@@ -779,7 +609,6 @@ endif
 
 CORE=	$(OBJDIR)/raine.o \
 	$(OBJDIR)/romdir.o \
-	$(OBJDIR)/history.o \
 	$(OBJDIR)/ingame.o \
 	$(OBJDIR)/savegame.o \
 	$(OBJDIR)/debug.o \
@@ -791,13 +620,11 @@ CORE=	$(OBJDIR)/raine.o \
 	$(OBJDIR)/emumain.o \
 	$(OBJDIR)/timer.o \
 	$(OBJDIR)/soundcfg.o \
-	$(OBJDIR)/speed_hack.o \
  	$(OBJDIR)/loadroms.o
 
 
 UNZIP = $(OBJDIR)/mini-unzip/unzip.o \
 	$(OBJDIR)/mini-unzip/ioapi.o
-
 
 CORE +=	$(OBJDIR)/sdl/dsw.o
 
@@ -809,18 +636,12 @@ ifdef SDL
 
 ifneq (${SDL},2)
 CORE += $(OBJDIR)/sdl/SDL_gfx/SDL_gfxPrimitives.o
-CORE +=	$(OBJDIR)/sdl/SDL_gfx/SDL_rotozoom.o
 else
 CORE += $(OBJDIR)/sdl2/SDL_gfx/SDL_gfxPrimitives.o
-CORE +=	$(OBJDIR)/sdl2/SDL_gfx/SDL_rotozoom.o
 endif
 
 endif
 
-# Mame Support (eeprom and handlers for the sound interface)
-
-MAME=	$(OBJDIR)/mame/memory.o \
-	$(OBJDIR)/mame/eeprom.o
 
 OBJS +=	 \
 	$(VIDEO) \
@@ -831,7 +652,6 @@ OBJS +=	 \
 	$(GUI) \
 	$(GAMES) \
 	$(SYSDRV) \
-	$(DEBUG)
 
 ifdef SDL
 OBJS +=	 \
@@ -841,17 +661,11 @@ OBJS +=	 \
 	$(OBJDIR)/sdl/glsl.o \
 	$(OBJDIR)/sdl/profile.o
 
-ifeq (${SDL},1)
-OBJS += $(OBJDIR)/sdl/blit.o \
-	$(OBJDIR)/sdl/display.o \
-	$(OBJDIR)/sdl/winpos.o \
-	$(OBJDIR)/sdl/compat.o
-else
+
 OBJS += $(OBJDIR)/sdl2/blit.o \
 	$(OBJDIR)/sdl2/display.o \
 	$(OBJDIR)/sdl2/controllermap.o \
 	$(OBJDIR)/sdl2/compat.o
-endif
 endif
 
 ifdef STATIC
@@ -886,45 +700,25 @@ CFLAGS += $(shell ${SDLCONFIG} --cflags)
 endif
 
 ifdef target
-LIBS += $(shell /usr/${target}/bin/${SDLCONFIG} --libs) -lSDL2_ttf -lSDL2_image
-ifdef USE_CURL
-LIBS += $(shell /usr/${target}/bin/curl-config --libs) # -lefence
-endif
+LIBS += $(shell /usr/${target}/bin/${SDLCONFIG} --libs) -lSDL2_ttf
 else
 ifeq (${SDL},1)
-LIBS += $(shell ${SDLCONFIG} --libs) -lSDL_ttf -lSDL_image
+LIBS += $(shell ${SDLCONFIG} --libs) -lSDL_ttf
 else
-LIBS += $(shell ${SDLCONFIG} --libs) -lSDL2_ttf -lSDL2_image
+LIBS += $(shell ${SDLCONFIG} --libs) -lSDL2_ttf
+endif
+endif
+endif
 endif
 
-endif
-endif
-endif
 
-
-all:	source/version.h cpuinfo message maketree depend $(RAINE_EXE) \
+all:	source/version.h message maketree depend $(RAINE_EXE) \
 	locale/raine.pot \
-	locale/fr/LC_MESSAGES/raine.mo \
-	locale/es/LC_MESSAGES/raine.mo \
-	locale/pt/LC_MESSAGES/raine.mo \
-	locale/it/LC_MESSAGES/raine.mo
 
 locale/raine.pot:
 	xgettext --omit-header -C -k_ -kgettext -d raine -s -o locale/tmp `find source -name '*.c*'`
 	cat locale/header locale/tmp > locale/raine.pot
 	rm -f locale/tmp
-
-locale/fr/LC_MESSAGES/raine.mo: locale/french.po
-	msgfmt -c -v -o $@ $<
-
-locale/pt/LC_MESSAGES/raine.mo: locale/pt_br.po
-	msgfmt -c -v -o $@ $<
-
-locale/it/LC_MESSAGES/raine.mo: locale/it.po
-	msgfmt -c -v -o $@ $<
-
-locale/es/LC_MESSAGES/raine.mo: locale/es.po
-	msgfmt -c -v -o $@ $<
 
 CFLAGS_BS := -Wall -O2 $(shell ${SDLCONFIG} --cflags) $(INCDIR) -DSTANDALONE -DNO_GZIP -c
 
@@ -951,10 +745,6 @@ ifndef RAINE_DOS
 	@${SDLCONFIG} --version
 endif
 ifdef RAINE_UNIX
-ifndef SDL
-	@echo -n allegro:
-	@allegro-config --version
-endif
 endif
 
 source/version.h: makefile
@@ -976,14 +766,6 @@ else
 	@echo "#define VERSION \"$(VERSION)\"" > source/version.h
 endif
 
-ifdef RAINE32
-
-# Add a nice little icon...
-
-$(OBJDIR)/raine.res:	source/raine.rc raine.ico
-	$(WINDRES) -O coff -o $(OBJDIR)/raine.res -i source/raine.rc
-endif
-
 message:
 ifdef RAINE_DEBUG
 	@echo -n Building Raine, debug version
@@ -995,11 +777,7 @@ ifdef GFX_SVGALIB
 endif
 	@echo " with $(CC) for $(OSTYPE) CPU=$(CPU)"
 
-ifdef RAINE32
-$(RAINE_EXE):	$(OBJS) $(OBJDIR)/raine.res
-else
 $(RAINE_EXE):	$(OBJS)
-endif
 
 	@echo Linking Raine...
 	$(LDV) $(LDFLAGS) $(LFLAGS) -g -Wall -Wno-write-strings -o $(RAINE_EXE) $^ $(LIBS)
@@ -1007,21 +785,13 @@ endif
 tags:
 	ctags --kinds-c=+fpdvx -R source
 
-converter: source/bonus/converter.c
-	$(CCV) $(CFLAGS) -c $< -o $(OBJDIR)/converter.o
-ifdef RAINE_UNIX
-	$(CCV) $(LFLAGS) -g -Wall -Wno-write-strings -o converter $(OBJDIR)/converter.o $(shell allegro-config --libs) -lz
-else
-	$(CCV) $(LFLAGS) -g -Wall -Wno-write-strings -o converter $(OBJDIR)/converter.o -lalleg -lz
-endif
-
 VIDEO: $(VIDEO)
 
 
 compress: $(RAINE_EXE)
 	   @strip $(RAINE_EXE)
 	   @echo Appending datafile...
-	   exedat -a -c $(RAINE_EXE) raine.dat
+#	   exedat -a -c $(RAINE_EXE) raine.dat
 	   upx -9 $(RAINE_EXE)
 
 # compile object from standard c
@@ -1080,11 +850,6 @@ $(OBJDIR)/68000/star.o: source/68000/star.c
 	@echo Compiling StarScream...
 	$(CCV) $(DEFINE) $(CFLAGS_MCU) -c $< -o $@
 
-$(OBJDIR)/z80/makez80.o: source/z80/makez80.c
-	@echo Compiling mz80...
-	$(CCV) $(INCDIR) $(DEFINE) $(CFLAGS_MCU) -c $< -o $@
-
-
 # create directories
 
 $(OBJDIRS):
@@ -1109,7 +874,6 @@ clean:
 	$(RM) -r $(OBJDIR)
 	@echo Deleting $(RAINE_EXE)...
 	$(RM) $(RAINE_EXE) make.dep
-#	$(RM) cpuinfo
 
 # Installation part (Only for Unix)
 ifndef SDL
@@ -1184,8 +948,3 @@ source/Musashi/m68k.h:
 	cd source/Musashi && git submodule update
 
 endif
-
-test_gui: $(OBJDIR)/test_gui.o $(OBJDIR)/sdl2/gui/menu.o $(OBJDIR)/sdl/gui/widget.o $(OBJDIR)/sdl/gui/tslider.o $(OBJDIR)/sdl2/gui/tedit.o $(OBJDIR)/sdl2/SDL_gfx/SDL_gfxPrimitives.o \
-	$(OBJDIR)/sdl/gui/tfont.o $(OBJDIR)/sdl/gui/tlift.o $(OBJDIR)/sdl/SDL_gfx/SDL_framerate.o $(OBJDIR)/sdl/dialogs/messagebox.o \
-	$(OBJDIR)/sdl2/SDL_gfx/SDL_rotozoom.o
-	$(LDV) $(LDFLAGS) $(LFLAGS) -o $@ -DSDL=2 `sdl2-config --cflags` `sdl2-config --libs` $^ -lSDL2_image -lSDL2_ttf -lmuparser
